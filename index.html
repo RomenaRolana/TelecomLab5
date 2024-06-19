@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Декодер Вітербі</title>
+    <style>
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+<h2>Декодер Вітербі</h2>
+<button onclick="generateEncodeDecode()">Генерувати, кодувати та декодувати</button>
+<div id="results">
+    <!-- Тут будуть відображені результати -->
+</div>
+
+<script>
+    function generatePossibleStates(m) {
+        // Генерація можливих станів для регістра зсуву довжиною m бітів.
+        let states = [];
+        let numStates = 1 << m;  // 2^m станів
+        for (let i = 0; i < numStates; i++) {
+            let state = i.toString(2).padStart(m, '0');  // Представлення стану в бінарному форматі
+            states.push(state);
+        }
+        return states;
+    }
+
+    function calculateOutputForState(state, polynomial) {
+        // Обчислення вихідної послідовності для даного стану згідно з породжуючими поліномами.
+        let output = [];
+        for (let poly of polynomial) {
+            let bit = 0;
+            for (let i = 0; i < state.length; i++) {
+                bit ^= (state[i] === '1' ? 1 : 0) & poly[i];  // XOR операція для кожного біта
+            }
+            output.push(bit);
+        }
+        return output.join('');
+    }
+
+    function viterbiDecode(encoded, n, m, polynomial) {
+        // Вітербі декодер для згортково кодованої послідовності.
+        const states = generatePossibleStates(m);  // Генерація всіх можливих станів
+        let paths = states.map(s => ({ path: s, cost: 0 }));  // Ініціалізація шляхів з початковими станами та вартістю
+        let outputForStates = states.map(s => calculateOutputForState(s, polynomial));  // Вирахування виходів для кожного стану
+
+        for (let i = 0; i < encoded.length; i += n) {
+            let segment = encoded.substring(i, i + n);  // Отримання відрізку закодованої послідовності
+            let newPaths = [];
+
+            for (let stateIndex = 0; stateIndex < states.length; stateIndex++) {
+                let minCost = Number.MAX_SAFE_INTEGER;  // Мінімальна вартість для поточного стану
+                let bestPredecessor = null;  // Найкращий попередній стан
+
+                for (let prevStateIndex = 0; prevStateIndex < states.length; prevStateIndex++) {
+                    let expectedOutput = outputForStates[prevStateIndex];  // Очікуваний вихід з попереднього стану
+                    let transitionCost = 0;
+
+                    for (let j = 0; j < n; j++) {
+                        transitionCost += (segment[j] === expectedOutput[j] ? 0 : 1);  // Визначення вартості переходу (відстань Хеммінга)
+                    }
+
+                    let currentCost = paths[prevStateIndex].cost + transitionCost;  // Загальна вартість шляху до поточного стану
+                    if (currentCost < minCost) {
+                        minCost = currentCost;
+                        bestPredecessor = prevStateIndex;  // Оновлення найкращого шляху
+                    }
+                }
+
+                let newState = states[stateIndex].substring(1) + '0';  // Перехід до нового стану, припускаючи 0
+                let newState1 = states[stateIndex].substring(1) + '1';  // Перехід до нового стану, припускаючи 1
+                newPaths.push({ path: paths[bestPredecessor].path + (newState === states[stateIndex] ? '0' : '1'), cost: minCost });
+            }
+
+            paths = newPaths;
+        }
+
+        // Знаходження шляху з мінімальною вартістю
+        let minPath = paths.reduce((a, b) => a.cost < b.cost ? a : b);
+        return minPath.path.substring(m);  // Відкидання початкових станів з шляху
+    }
+</script>
+
+</body>
+</html>
